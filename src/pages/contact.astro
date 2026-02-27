@@ -1,0 +1,162 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Paisley — Contact">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+    <div class="flex flex-col lg:flex-row gap-12 lg:gap-20">
+      <!-- Left Column: Info -->
+      <div class="lg:w-1/3">
+        <h1 class="font-display text-3xl sm:text-4xl font-light tracking-wide text-gray-900 mb-6">
+          Contact
+        </h1>
+        <p class="text-gray-500 leading-relaxed mb-8">
+          Interested in working together? I'd love to hear about your project.
+          Fill out the form or reach out directly.
+        </p>
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+            </svg>
+            <a href="mailto:hello@paisley.com" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+              hello@paisley.com
+            </a>
+          </div>
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+            </svg>
+            <span class="text-sm text-gray-600">
+              Pacific Northwest, USA
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm text-gray-600">
+              Available worldwide for travel
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Form -->
+      <div class="flex-1">
+        <form class="space-y-6" action="#" method="POST">
+          <div>
+            <label for="name" class="block text-sm font-display tracking-wide text-gray-700 mb-2">
+              Name
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              required
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-colors"
+              placeholder="Your name"
+            />
+          </div>
+          <div>
+            <label for="email" class="block text-sm font-display tracking-wide text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-colors"
+              placeholder="your@email.com"
+            />
+          </div>
+          <div>
+            <label for="subject" class="block text-sm font-display tracking-wide text-gray-700 mb-2">
+              Subject
+            </label>
+            <input
+              type="text"
+              id="subject"
+              name="subject"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-colors"
+              placeholder="What's this about?"
+            />
+          </div>
+          <div>
+            <label for="message" class="block text-sm font-display tracking-wide text-gray-700 mb-2">
+              Message
+            </label>
+            <textarea
+              id="message"
+              name="message"
+              rows="6"
+              required
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-colors resize-none"
+              placeholder="Tell me about your project..."
+            ></textarea>
+          </div>
+          <!-- Honeypot (hidden from humans, bots fill it) -->
+          <div class="hidden" aria-hidden="true">
+            <label for="website">Website</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <!-- Human verification -->
+          <div>
+            <label for="captcha" class="block text-sm font-display tracking-wide text-gray-700 mb-2">
+              Verification: <span id="captcha-question" class="font-medium text-gray-900"></span>
+            </label>
+            <input
+              type="text"
+              id="captcha"
+              name="captcha"
+              required
+              inputmode="numeric"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-colors"
+              placeholder="Your answer"
+            />
+            <p id="captcha-error" class="mt-1.5 text-sm text-red-500 hidden">
+              Incorrect answer, please try again.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            class="w-full sm:w-auto px-8 py-3 bg-gray-900 text-white text-sm font-display tracking-widest uppercase hover:bg-gray-800 transition-colors rounded-sm cursor-pointer"
+          >
+            Send Message
+          </button>
+        </form>
+
+        <script>
+          const a = Math.floor(Math.random() * 10) + 1;
+          const b = Math.floor(Math.random() * 10) + 1;
+          const answer = a + b;
+
+          document.getElementById("captcha-question")!.textContent = `What is ${a} + ${b}?`;
+
+          document.querySelector("form")!.addEventListener("submit", (e) => {
+            const honeypot = (document.getElementById("website") as HTMLInputElement).value;
+            if (honeypot) {
+              e.preventDefault();
+              return;
+            }
+
+            const userAnswer = (document.getElementById("captcha") as HTMLInputElement).value.trim();
+            const errorEl = document.getElementById("captcha-error")!;
+
+            if (parseInt(userAnswer) !== answer) {
+              e.preventDefault();
+              errorEl.classList.remove("hidden");
+              return;
+            }
+
+            errorEl.classList.add("hidden");
+          });
+        </script>
+      </div>
+    </div>
+  </div>
+</Layout>

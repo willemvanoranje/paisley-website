@@ -1,0 +1,121 @@
+<div
+  id="lightbox"
+  class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/90 backdrop-blur-sm"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Image viewer"
+>
+  <!-- Close button -->
+  <button
+    id="lightbox-close"
+    class="absolute top-4 right-4 z-10 p-2 text-white/70 hover:text-white transition-colors cursor-pointer"
+    aria-label="Close lightbox"
+  >
+    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+
+  <!-- Previous button -->
+  <button
+    id="lightbox-prev"
+    class="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 text-white/70 hover:text-white transition-colors cursor-pointer"
+    aria-label="Previous image"
+  >
+    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+    </svg>
+  </button>
+
+  <!-- Next button -->
+  <button
+    id="lightbox-next"
+    class="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 text-white/70 hover:text-white transition-colors cursor-pointer"
+    aria-label="Next image"
+  >
+    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    </svg>
+  </button>
+
+  <!-- Image container -->
+  <div class="flex items-center justify-center w-full h-full p-8 sm:p-16">
+    <img
+      id="lightbox-img"
+      src=""
+      alt=""
+      class="max-w-full max-h-full object-contain opacity-0 transition-opacity duration-300"
+    />
+  </div>
+</div>
+
+<script>
+  const lightbox = document.getElementById("lightbox")!;
+  const lightboxImg = document.getElementById("lightbox-img") as HTMLImageElement;
+  const closeBtn = document.getElementById("lightbox-close")!;
+  const prevBtn = document.getElementById("lightbox-prev")!;
+  const nextBtn = document.getElementById("lightbox-next")!;
+  const galleryItems = document.querySelectorAll(".gallery-item");
+
+  let currentIndex = 0;
+  const images = Array.from(galleryItems).map((item) => ({
+    src: item.getAttribute("data-src")!,
+    alt: item.getAttribute("data-alt")!,
+  }));
+
+  function showImage(index: number) {
+    currentIndex = ((index % images.length) + images.length) % images.length;
+    lightboxImg.classList.remove("opacity-100");
+    lightboxImg.classList.add("opacity-0");
+
+    const img = new Image();
+    img.onload = () => {
+      lightboxImg.src = images[currentIndex].src;
+      lightboxImg.alt = images[currentIndex].alt;
+      requestAnimationFrame(() => {
+        lightboxImg.classList.remove("opacity-0");
+        lightboxImg.classList.add("opacity-100");
+      });
+    };
+    img.src = images[currentIndex].src;
+  }
+
+  function openLightbox(index: number) {
+    lightbox.classList.remove("hidden");
+    lightbox.classList.add("flex");
+    document.body.style.overflow = "hidden";
+    showImage(index);
+  }
+
+  function closeLightbox() {
+    lightbox.classList.add("hidden");
+    lightbox.classList.remove("flex");
+    document.body.style.overflow = "";
+  }
+
+  galleryItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const index = parseInt(item.getAttribute("data-index")!);
+      openLightbox(index);
+    });
+  });
+
+  closeBtn.addEventListener("click", closeLightbox);
+  prevBtn.addEventListener("click", () => showImage(currentIndex - 1));
+  nextBtn.addEventListener("click", () => showImage(currentIndex + 1));
+
+  lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox || (e.target as Element).closest(".flex")) {
+      if (!(e.target as Element).closest("button") && e.target !== lightboxImg) {
+        closeLightbox();
+      }
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (lightbox.classList.contains("hidden")) return;
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "ArrowLeft") showImage(currentIndex - 1);
+    if (e.key === "ArrowRight") showImage(currentIndex + 1);
+  });
+</script>
