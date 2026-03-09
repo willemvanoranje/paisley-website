@@ -7,64 +7,24 @@ interface GalleryImage {
 
 const images: GalleryImage[] = [
   {
-    src: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80",
-    alt: "Landscape with mountains and lake",
+    src: "/portfolio/india-travel.jpg",
+    alt: "India travel photography — polaroid grid of street scenes from Kolkata and West Bengal",
     aspect: "portrait",
   },
   {
-    src: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=600&q=80",
-    alt: "Underwater portrait with bubbles",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1491013516836-7db643ee125a?w=600&q=80",
-    alt: "Children playing outdoors in black and white",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&q=80",
-    alt: "Portrait in natural light",
+    src: "/portfolio/flam-norway.jpg",
+    alt: "Flåm, Norway — travel poster featuring a sheep at Brekkenfossen",
     aspect: "portrait",
   },
   {
-    src: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=600&q=80",
-    alt: "Sunlight through forest trees",
+    src: "/portfolio/focus-strength.jpg",
+    alt: "Focus Becomes Strength — fitness training poster design",
     aspect: "portrait",
   },
   {
-    src: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80",
-    alt: "Group of friends sitting together",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1474552226712-ac0f0961a954?w=600&q=80",
-    alt: "Essential oils and amber bottles",
-    aspect: "square",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=600&q=80",
-    alt: "Ceramic pottery and vases",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=600&q=80",
-    alt: "Close-up of wedding rings",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=600&q=80",
-    alt: "Woman by the lake in winter",
+    src: "/portfolio/banff-alberta.jpg",
+    alt: "Banff, Alberta — travel poster with blue-toned landscape",
     aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80",
-    alt: "Portrait with dramatic lighting",
-    aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80",
-    alt: "Wedding couple in golden hour",
-    aspect: "landscape",
   },
 ];
 ---
@@ -75,7 +35,7 @@ const images: GalleryImage[] = [
       <button
         class="gallery-item block w-full overflow-hidden rounded-sm cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
         data-index={index}
-        data-src={image.src.replace("w=600", "w=1400")}
+        data-src={image.src}
         data-alt={image.alt}
       >
         <img
