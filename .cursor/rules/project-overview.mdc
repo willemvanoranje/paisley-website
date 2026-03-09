@@ -1,0 +1,39 @@
+---
+description: Project overview, architecture, and deployment guide for the Paisley photography portfolio
+alwaysApply: true
+---
+
+# Paisley Photography Portfolio
+
+Static photography portfolio built with Astro 5 + Tailwind CSS 4, hosted on Cloudflare Pages.
+
+## Architecture
+
+- **Site:** Astro static site in `src/` → deployed to Cloudflare Pages (auto-deploys on push to `main`)
+- **Contact form Worker:** `worker/index.js` → deployed separately via `wrangler deploy` from the `worker/` directory
+- **Domain:** `paisleys.work`
+
+## Contact Form Flow
+
+1. Cloudflare Turnstile generates a token on the client
+2. Form submits to the Worker at `https://paisley-contact-worker.paisley.workers.dev`
+3. Worker verifies the token against Cloudflare SiteVerify API
+4. Worker sends the form submission to `hello@paisleys.work` via Resend API
+5. Worker sends a confirmation email to the submitter
+
+## Worker Secrets (set via `wrangler secret put`, never in code)
+
+- `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile secret key
+- `RESEND_API_KEY` — Resend email API key
+
+## Deploying
+
+- **Site changes:** Push to `main` — Cloudflare Pages builds and deploys automatically
+- **Worker changes:** Run `wrangler deploy` from the `worker/` directory (requires `CLOUDFLARE_API_TOKEN` env var or `wrangler login`)
+
+## Key Files
+
+- `src/pages/contact.astro` — Contact form with Turnstile widget
+- `worker/index.js` — Cloudflare Worker (Turnstile verification + email delivery)
+- `worker/wrangler.toml` — Worker deployment config
+- `astro.config.mjs` — Astro + Tailwind + Vite config
