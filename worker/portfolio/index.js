@@ -364,7 +364,7 @@ function renderDashboard() {
     : null;
   if (emptyState) grid.appendChild(emptyState);
 
-  const saveBar = hasChanges ? h("div", { className: "fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4 z-40" },
+  const saveBar = hasChanges ? h("div", { className: "save-bar fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4 z-40" },
     h("div", { className: "max-w-6xl mx-auto flex items-center justify-between" },
       h("span", { className: "text-sm text-gray-600" }, "You have unsaved changes"),
       h("button", {
@@ -426,14 +426,34 @@ function renderImageCard(img) {
 }
 
 function renderSaveBar() {
-  const existing = document.querySelector(".fixed.bottom-0");
-  if (hasChanges && !existing) render();
-  if (!hasChanges && existing) existing.remove();
+  const existing = document.querySelector(".save-bar");
+  if (hasChanges && !existing) {
+    const wrap = document.querySelector("#app > .min-h-screen");
+    if (!wrap) return;
+    const bar = h("div", { className: "save-bar fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4 z-40" },
+      h("div", { className: "max-w-6xl mx-auto flex items-center justify-between" },
+        h("span", { className: "text-sm text-gray-600" }, "You have unsaved changes"),
+        h("button", {
+          className: "px-6 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm",
+          onClick: saveChanges,
+        }, "Save Changes")
+      )
+    );
+    wrap.appendChild(bar);
+    const main = wrap.querySelector("main");
+    if (main) main.classList.add("pb-24");
+  }
+  if (!hasChanges && existing) {
+    existing.remove();
+    const main = document.querySelector("#app main");
+    if (main) main.classList.remove("pb-24");
+  }
 }
 
 function initSortable() {
   const grid = document.getElementById("image-grid");
-  if (!grid || sortable) return;
+  if (!grid) return;
+  if (sortable) sortable.destroy();
   sortable = new Sortable(grid, {
     animation: 200,
     ghostClass: "sortable-ghost",
@@ -488,7 +508,7 @@ async function saveChanges() {
     });
     hasChanges = false;
     toast("Changes saved");
-    render();
+    renderSaveBar();
   } catch (err) { toast("Save failed: " + err.message, "error"); }
 }
 
