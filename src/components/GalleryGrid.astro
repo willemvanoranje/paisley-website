@@ -1,5 +1,8 @@
 ---
-const apiUrl = import.meta.env.PUBLIC_PORTFOLIO_API_URL || "";
+let apiUrl = (import.meta.env.PUBLIC_PORTFOLIO_API_URL || "").trim();
+if (apiUrl && !apiUrl.startsWith("http://") && !apiUrl.startsWith("https://")) {
+  apiUrl = `https://${apiUrl}`;
+}
 ---
 
 <div id="gallery-container" data-api-url={apiUrl}>
