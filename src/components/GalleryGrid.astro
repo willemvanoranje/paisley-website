@@ -1,32 +1,21 @@
 ---
-interface GalleryImage {
-  src: string;
-  alt: string;
-  aspect: "portrait" | "landscape" | "square";
-}
+import fs from "node:fs";
+import path from "node:path";
 
-const images: GalleryImage[] = [
-  {
-    src: "/portfolio/india-travel.jpg",
-    alt: "India travel photography — polaroid grid of street scenes from Kolkata and West Bengal",
-    aspect: "portrait",
-  },
-  {
-    src: "/portfolio/flam-norway.jpg",
-    alt: "Flåm, Norway — travel poster featuring a sheep at Brekkenfossen",
-    aspect: "portrait",
-  },
-  {
-    src: "/portfolio/focus-strength.jpg",
-    alt: "Focus Becomes Strength — fitness training poster design",
-    aspect: "portrait",
-  },
-  {
-    src: "/portfolio/banff-alberta.jpg",
-    alt: "Banff, Alberta — travel poster with blue-toned landscape",
-    aspect: "portrait",
-  },
-];
+const PORTFOLIO_DIR = path.join(process.cwd(), "public", "portfolio");
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"]);
+
+const files = fs.existsSync(PORTFOLIO_DIR)
+  ? fs.readdirSync(PORTFOLIO_DIR)
+      .filter((f) => IMAGE_EXTS.has(path.extname(f).toLowerCase()))
+      .sort((a, b) => a.localeCompare(b))
+  : [];
+
+const images = files.map((file) => {
+  const name = path.basename(file, path.extname(file));
+  const alt = name.replace(/[-_]/g, " ");
+  return { src: `/portfolio/${file}`, alt };
+});
 ---
 
 <div class="masonry-grid">
