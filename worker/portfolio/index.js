@@ -232,7 +232,8 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 <style>
   .sortable-ghost { opacity: 0.3; }
-  .sortable-drag { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+  .sortable-chosen { outline: 2px solid #6b7280; outline-offset: 2px; transform: scale(1.03); transition: transform 0.15s ease, outline 0.15s ease; z-index: 10; }
+  .sortable-drag { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(1.05); }
   .upload-zone.dragover { border-color: #374151; background: #f9fafb; }
   .toast { animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards; }
   @keyframes slideIn { from { transform: translateY(-1rem); opacity: 0; } }
@@ -288,7 +289,15 @@ async function loadImages() {
   hasChanges = false;
 }
 
+function destroySortable() {
+  if (sortable) {
+    sortable.destroy();
+    sortable = null;
+  }
+}
+
 function render() {
+  destroySortable();
   const app = document.getElementById("app");
   app.innerHTML = "";
   app.appendChild(password ? renderDashboard() : renderLogin());
@@ -416,8 +425,8 @@ function renderImageCard(img) {
         }, "Delete")
       )
     ),
-    h("div", { className: "absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/80 rounded p-1" },
-      h("svg", { className: "w-4 h-4 text-gray-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", "stroke-width": "2" },
+    h("div", { className: "absolute top-2 left-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/80 rounded p-1", title: "Hold to drag & reorder" },
+      h("svg", { className: "w-4 h-4 text-gray-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", "stroke-width": "2" },
         (() => { const p = document.createElementNS("http://www.w3.org/2000/svg","path"); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round"); p.setAttribute("d","M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"); return p; })()
       )
     )
@@ -453,12 +462,17 @@ function renderSaveBar() {
 function initSortable() {
   const grid = document.getElementById("image-grid");
   if (!grid) return;
-  if (sortable) sortable.destroy();
+  destroySortable();
   sortable = new Sortable(grid, {
     animation: 200,
     ghostClass: "sortable-ghost",
     dragClass: "sortable-drag",
-    handle: ".group",
+    chosenClass: "sortable-chosen",
+    delay: 400,
+    delayOnTouchOnly: false,
+    touchStartThreshold: 8,
+    filter: "input, button, label, a",
+    preventOnFilter: false,
     onEnd: () => {
       const keys = [...grid.querySelectorAll("[data-key]")].map(el => el.dataset.key);
       const reordered = [];
@@ -482,7 +496,7 @@ async function uploadFiles(fileList) {
     const res = await apiFetch("/api/admin/upload", { method: "POST", body: form });
     const data = await res.json();
     toast(data.uploaded.length + " image(s) uploaded");
-    sortable = null;
+    destroySortable();
     await loadImages();
     render();
   } catch (err) { toast("Upload failed: " + err.message, "error"); }
@@ -493,7 +507,7 @@ async function deleteImage(key) {
   try {
     await apiFetch("/api/admin/images/" + encodeURIComponent(key), { method: "DELETE" });
     toast("Image deleted");
-    sortable = null;
+    destroySortable();
     await loadImages();
     render();
   } catch (err) { toast("Delete failed: " + err.message, "error"); }
