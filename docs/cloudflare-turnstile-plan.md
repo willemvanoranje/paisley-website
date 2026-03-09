@@ -1,10 +1,10 @@
 # Cloudflare Turnstile + Worker Verification Plan
 
-**Status:** Implemented (pending deployment — see Deployment Steps below)
+**Status:** Deployed and live at `paisleys.work`
 
 ## Overview
 
-Replace the math CAPTCHA on the contact form with Cloudflare Turnstile, and create a Cloudflare Worker to verify tokens server-side. Email delivery will be added later.
+Replace the math CAPTCHA on the contact form with Cloudflare Turnstile, and create a Cloudflare Worker to verify tokens server-side and deliver form submissions via email.
 
 ## Flow
 
@@ -44,8 +44,9 @@ A small script (~40 lines) that:
 - Receives POST with form fields + `cf-turnstile-response` token
 - Verifies the token against `https://challenges.cloudflare.com/turnstile/v0/siteverify` using your secret key (stored as a Worker secret, never in code)
 - Returns 200 if verified, 403 if not
-- Logs the submission data (name, email, subject, message) — ready for email delivery to be wired in later
-- Includes CORS headers so the form can submit from your site
+- Sends the form submission to `hello@paisleys.work` via the Resend API
+- Sends a confirmation email to the submitter
+- Includes CORS headers scoped to `https://paisleys.work`
 
 ### 3. Deployment Steps
 

@@ -114,8 +114,8 @@ WSL2 runs on a virtual network that isn't directly reachable from other devices.
 ## Planned Work
 
 - [x] Cloudflare Turnstile + Worker for contact form verification ([plan](docs/cloudflare-turnstile-plan.md))
-- [ ] Email delivery for contact form submissions
-- [ ] Custom domain registration and setup
-- [ ] Custom email address (e.g., hello@paisley.com)
+- [x] Email delivery for contact form submissions (via [Resend](https://resend.com))
+- [x] Custom domain registration and setup (`paisleys.work`)
+- [x] Custom email address (`hello@paisleys.work` via Cloudflare Email Routing)
+- [x] Deployment to production (Cloudflare Pages)
 - [ ] Replace placeholder images with real photography
-- [ ] Deployment to production (Vercel, Netlify, or Cloudflare Pages)
