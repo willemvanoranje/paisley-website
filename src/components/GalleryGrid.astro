@@ -1,72 +1,21 @@
 ---
-interface GalleryImage {
-  src: string;
-  alt: string;
-  aspect: "portrait" | "landscape" | "square";
-}
+import fs from "node:fs";
+import path from "node:path";
 
-const images: GalleryImage[] = [
-  {
-    src: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80",
-    alt: "Landscape with mountains and lake",
-    aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=600&q=80",
-    alt: "Underwater portrait with bubbles",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1491013516836-7db643ee125a?w=600&q=80",
-    alt: "Children playing outdoors in black and white",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&q=80",
-    alt: "Portrait in natural light",
-    aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=600&q=80",
-    alt: "Sunlight through forest trees",
-    aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80",
-    alt: "Group of friends sitting together",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1474552226712-ac0f0961a954?w=600&q=80",
-    alt: "Essential oils and amber bottles",
-    aspect: "square",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=600&q=80",
-    alt: "Ceramic pottery and vases",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=600&q=80",
-    alt: "Close-up of wedding rings",
-    aspect: "landscape",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=600&q=80",
-    alt: "Woman by the lake in winter",
-    aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80",
-    alt: "Portrait with dramatic lighting",
-    aspect: "portrait",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80",
-    alt: "Wedding couple in golden hour",
-    aspect: "landscape",
-  },
-];
+const PORTFOLIO_DIR = path.join(process.cwd(), "public", "portfolio");
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"]);
+
+const files = fs.existsSync(PORTFOLIO_DIR)
+  ? fs.readdirSync(PORTFOLIO_DIR)
+      .filter((f) => IMAGE_EXTS.has(path.extname(f).toLowerCase()))
+      .sort((a, b) => a.localeCompare(b))
+  : [];
+
+const images = files.map((file) => {
+  const name = path.basename(file, path.extname(file));
+  const alt = name.replace(/[-_]/g, " ");
+  return { src: `/portfolio/${file}`, alt };
+});
 ---
 
 <div class="masonry-grid">
@@ -75,7 +24,7 @@ const images: GalleryImage[] = [
       <button
         class="gallery-item block w-full overflow-hidden rounded-sm cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
         data-index={index}
-        data-src={image.src.replace("w=600", "w=1400")}
+        data-src={image.src}
         data-alt={image.alt}
       >
         <img
