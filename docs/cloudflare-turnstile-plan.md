@@ -1,6 +1,6 @@
 # Cloudflare Turnstile + Worker Verification Plan
 
-**Status:** Not yet implemented
+**Status:** Implemented (pending deployment — see Deployment Steps below)
 
 ## Overview
 
@@ -49,7 +49,7 @@ A small script (~40 lines) that:
 
 ### 3. Deployment Steps
 
-1. **Get Turnstile keys:** Cloudflare Dashboard > Turnstile > Add Site > copy Site Key + Secret Key
+1. **Get Turnstile keys:** Cloudflare Dashboard > Turnstile > Add Widget > copy Site Key + Secret Key
 2. **Deploy Worker:** Install Wrangler CLI (`npm i -g wrangler`), login, deploy with `wrangler deploy`
 3. **Set Worker secret:** `wrangler secret put TURNSTILE_SECRET_KEY` (paste your secret key)
 4. **Update site key:** Replace placeholder in `contact.astro` with your real site key

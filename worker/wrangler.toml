@@ -1,0 +1,6 @@
+name = "paisley-contact-worker"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# TURNSTILE_SECRET_KEY is set via `wrangler secret put TURNSTILE_SECRET_KEY`
+# Never commit the secret key to source control.

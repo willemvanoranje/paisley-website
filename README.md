@@ -6,7 +6,7 @@ A clean, minimal photography portfolio website built with Astro and Tailwind CSS
 
 - **Portfolio** (`/`) — Masonry-style photo gallery with lightbox viewer
 - **About** (`/about`) — Bio, experience timeline, skills grid, and education
-- **Contact** (`/contact`) — Contact form with math CAPTCHA and honeypot spam protection
+- **Contact** (`/contact`) — Contact form with Cloudflare Turnstile verification
 
 ## Tech Stack
 
@@ -33,6 +33,10 @@ src/
     ├── index.astro            # Portfolio page
     ├── about.astro            # About page
     └── contact.astro          # Contact form page
+
+worker/
+├── index.js                   # Cloudflare Worker for Turnstile verification
+└── wrangler.toml              # Worker deployment config
 ```
 
 ## Getting Started
@@ -94,12 +98,14 @@ The mobile menu uses an inline `style="background:#ffffff"` rather than Tailwind
 
 ### Contact Form Spam Protection
 
-The contact form currently uses two client-side techniques:
+The contact form uses [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/) — a privacy-friendly, invisible CAPTCHA alternative. The flow:
 
-1. **Math CAPTCHA** — A random addition question (e.g., "What is 7 + 3?") that regenerates on each page load
-2. **Honeypot field** — A hidden "website" input invisible to humans but typically filled by bots
+1. Turnstile generates a cryptographic token when the user interacts with the page
+2. On form submit, the token is sent (along with form data) to a Cloudflare Worker
+3. The Worker verifies the token server-side against Cloudflare's SiteVerify API
+4. Only verified submissions are accepted
 
-These are stopgaps. The planned upgrade is Cloudflare Turnstile with server-side token verification via a Cloudflare Worker. See [docs/cloudflare-turnstile-plan.md](docs/cloudflare-turnstile-plan.md) for the full plan.
+The Worker source lives in `worker/`. See [docs/cloudflare-turnstile-plan.md](docs/cloudflare-turnstile-plan.md) for the full architecture plan and deployment steps.
 
 ### Tunnel-Friendly Vite Config
 
@@ -107,7 +113,7 @@ WSL2 runs on a virtual network that isn't directly reachable from other devices.
 
 ## Planned Work
 
-- [ ] Cloudflare Turnstile + Worker for contact form verification ([plan](docs/cloudflare-turnstile-plan.md))
+- [x] Cloudflare Turnstile + Worker for contact form verification ([plan](docs/cloudflare-turnstile-plan.md))
 - [ ] Email delivery for contact form submissions
 - [ ] Custom domain registration and setup
 - [ ] Custom email address (e.g., hello@paisley.com)
