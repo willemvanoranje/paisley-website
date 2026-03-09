@@ -11,7 +11,17 @@ Static photography portfolio built with Astro 5 + Tailwind CSS 4, hosted on Clou
 
 - **Site:** Astro static site in `src/` → deployed to Cloudflare Pages (auto-deploys on push to `main`)
 - **Contact form Worker:** `worker/index.js` → deployed separately via `wrangler deploy` from the `worker/` directory
+- **Portfolio API Worker:** `worker/portfolio/index.js` → manages portfolio images in R2, serves admin UI at `/admin`
 - **Domain:** `paisleys.work`
+
+## Portfolio Image Management
+
+Images are stored in Cloudflare R2 and managed via a dedicated Worker with a browser-based admin panel.
+
+- **Admin UI:** `https://<portfolio-worker-url>/admin` — upload, delete, reorder, edit alt text
+- **Public API:** `GET /api/images` returns the image list; `GET /images/:key` serves images from R2
+- **R2 Bucket:** `portfolio-images` — stores image files and a `_manifest.json` for ordering/metadata
+- **Site integration:** `GalleryGrid.astro` fetches images client-side from the Worker API (configured via `PUBLIC_PORTFOLIO_API_URL` env var on Cloudflare Pages)
 
 ## Contact Form Flow
 
@@ -23,17 +33,28 @@ Static photography portfolio built with Astro 5 + Tailwind CSS 4, hosted on Clou
 
 ## Worker Secrets (set via `wrangler secret put`, never in code)
 
+**Contact Worker** (`worker/`):
 - `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile secret key
 - `RESEND_API_KEY` — Resend email API key
 
+**Portfolio Worker** (`worker/portfolio/`):
+- `ADMIN_PASSWORD` — password for the admin panel
+
 ## Deploying
 
-- **Site changes:** Push to `main` — Cloudflare Pages builds and deploys automatically
-- **Worker changes:** Run `wrangler deploy` from the `worker/` directory (requires `CLOUDFLARE_API_TOKEN` env var or `wrangler login`)
+- **Site changes:** Push to `main` — Cloudflare Pages builds and deploys automatically (set `PUBLIC_PORTFOLIO_API_URL` env var to the portfolio Worker URL in Cloudflare Pages settings)
+- **Contact Worker changes:** Run `wrangler deploy` from the `worker/` directory
+- **Portfolio Worker changes:** Run `wrangler deploy` from the `worker/portfolio/` directory
+- Both Workers require `CLOUDFLARE_API_TOKEN` env var or `wrangler login`
+- The portfolio Worker requires an R2 bucket named `portfolio-images` (create via `wrangler r2 bucket create portfolio-images`)
 
 ## Key Files
 
 - `src/pages/contact.astro` — Contact form with Turnstile widget
-- `worker/index.js` — Cloudflare Worker (Turnstile verification + email delivery)
-- `worker/wrangler.toml` — Worker deployment config
+- `src/components/GalleryGrid.astro` — Portfolio gallery (fetches from portfolio API at runtime)
+- `src/components/Lightbox.astro` — Fullscreen image viewer
+- `worker/index.js` — Contact form Worker (Turnstile verification + email delivery)
+- `worker/wrangler.toml` — Contact Worker deployment config
+- `worker/portfolio/index.js` — Portfolio API Worker (R2 image management + admin UI)
+- `worker/portfolio/wrangler.toml` — Portfolio Worker deployment config
 - `astro.config.mjs` — Astro + Tailwind + Vite config

@@ -55,15 +55,27 @@
   const closeBtn = document.getElementById("lightbox-close")!;
   const prevBtn = document.getElementById("lightbox-prev")!;
   const nextBtn = document.getElementById("lightbox-next")!;
-  const galleryItems = document.querySelectorAll(".gallery-item");
 
   let currentIndex = 0;
-  const images = Array.from(galleryItems).map((item) => ({
-    src: item.getAttribute("data-src")!,
-    alt: item.getAttribute("data-alt")!,
-  }));
+  let images: { src: string; alt: string }[] = [];
+
+  function initLightbox() {
+    const galleryItems = document.querySelectorAll(".gallery-item");
+    images = Array.from(galleryItems).map((item) => ({
+      src: item.getAttribute("data-src")!,
+      alt: item.getAttribute("data-alt")!,
+    }));
+
+    galleryItems.forEach((item) => {
+      item.addEventListener("click", () => {
+        const index = parseInt(item.getAttribute("data-index")!);
+        openLightbox(index);
+      });
+    });
+  }
 
   function showImage(index: number) {
+    if (images.length === 0) return;
     currentIndex = ((index % images.length) + images.length) % images.length;
     lightboxImg.classList.remove("opacity-100");
     lightboxImg.classList.add("opacity-0");
@@ -93,13 +105,6 @@
     document.body.style.overflow = "";
   }
 
-  galleryItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      const index = parseInt(item.getAttribute("data-index")!);
-      openLightbox(index);
-    });
-  });
-
   closeBtn.addEventListener("click", closeLightbox);
   prevBtn.addEventListener("click", () => showImage(currentIndex - 1));
   nextBtn.addEventListener("click", () => showImage(currentIndex + 1));
@@ -118,4 +123,10 @@
     if (e.key === "ArrowLeft") showImage(currentIndex - 1);
     if (e.key === "ArrowRight") showImage(currentIndex + 1);
   });
+
+  // Initialize immediately for any server-rendered gallery items
+  initLightbox();
+
+  // Re-initialize when gallery loads dynamically
+  document.addEventListener("gallery:loaded", () => initLightbox());
 </script>

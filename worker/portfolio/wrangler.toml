@@ -1,0 +1,10 @@
+name = "paisley-portfolio-api"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[[r2_buckets]]
+binding = "PORTFOLIO_BUCKET"
+bucket_name = "portfolio-images"
+
+# ADMIN_PASSWORD is set via `wrangler secret put ADMIN_PASSWORD`
+# Never commit the password to source control.

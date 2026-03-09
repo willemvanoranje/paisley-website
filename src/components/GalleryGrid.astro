@@ -1,40 +1,85 @@
 ---
-import fs from "node:fs";
-import path from "node:path";
-
-const PORTFOLIO_DIR = path.join(process.cwd(), "public", "portfolio");
-const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"]);
-
-const files = fs.existsSync(PORTFOLIO_DIR)
-  ? fs.readdirSync(PORTFOLIO_DIR)
-      .filter((f) => IMAGE_EXTS.has(path.extname(f).toLowerCase()))
-      .sort((a, b) => a.localeCompare(b))
-  : [];
-
-const images = files.map((file) => {
-  const name = path.basename(file, path.extname(file));
-  const alt = name.replace(/[-_]/g, " ");
-  return { src: `/portfolio/${file}`, alt };
-});
+const apiUrl = import.meta.env.PUBLIC_PORTFOLIO_API_URL || "";
 ---
 
-<div class="masonry-grid">
-  {images.map((image, index) => (
-    <div class="masonry-item">
-      <button
-        class="gallery-item block w-full overflow-hidden rounded-sm cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
-        data-index={index}
-        data-src={image.src}
-        data-alt={image.alt}
-      >
-        <img
-          src={image.src}
-          alt={image.alt}
-          loading={index < 4 ? "eager" : "lazy"}
-          decoding="async"
-          class="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-      </button>
-    </div>
-  ))}
+<div id="gallery-container" data-api-url={apiUrl}>
+  <div id="gallery-loading" class="masonry-grid">
+    {Array.from({ length: 8 }).map(() => (
+      <div class="masonry-item">
+        <div class="w-full rounded-sm bg-gray-100 animate-pulse" style="aspect-ratio: 3/4;" />
+      </div>
+    ))}
+  </div>
+  <div id="gallery-grid" class="masonry-grid hidden"></div>
+  <p id="gallery-empty" class="hidden text-center text-gray-400 py-16 text-lg">
+    No photos yet — check back soon!
+  </p>
+  <p id="gallery-error" class="hidden text-center text-red-400 py-16 text-sm">
+    Could not load portfolio. Please try refreshing.
+  </p>
 </div>
+
+<script>
+  async function loadGallery() {
+    const container = document.getElementById("gallery-container")!;
+    const apiUrl = container.getAttribute("data-api-url");
+    const loadingEl = document.getElementById("gallery-loading")!;
+    const gridEl = document.getElementById("gallery-grid")!;
+    const emptyEl = document.getElementById("gallery-empty")!;
+    const errorEl = document.getElementById("gallery-error")!;
+
+    if (!apiUrl) {
+      loadingEl.classList.add("hidden");
+      emptyEl.classList.remove("hidden");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/api/images`);
+      if (!res.ok) throw new Error("API returned " + res.status);
+      const data = await res.json();
+      const images: { src: string; alt: string }[] = data.images || [];
+
+      loadingEl.classList.add("hidden");
+
+      if (images.length === 0) {
+        emptyEl.classList.remove("hidden");
+        return;
+      }
+
+      images.forEach((image, index) => {
+        const item = document.createElement("div");
+        item.className = "masonry-item";
+
+        const btn = document.createElement("button");
+        btn.className =
+          "gallery-item block w-full overflow-hidden rounded-sm cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400";
+        btn.setAttribute("data-index", String(index));
+        btn.setAttribute("data-src", image.src);
+        btn.setAttribute("data-alt", image.alt);
+
+        const img = document.createElement("img");
+        img.src = image.src;
+        img.alt = image.alt;
+        img.loading = index < 4 ? "eager" : "lazy";
+        img.decoding = "async";
+        img.className =
+          "w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105";
+
+        btn.appendChild(img);
+        item.appendChild(btn);
+        gridEl.appendChild(item);
+      });
+
+      gridEl.classList.remove("hidden");
+
+      document.dispatchEvent(new CustomEvent("gallery:loaded"));
+    } catch (err) {
+      console.error("Failed to load portfolio:", err);
+      loadingEl.classList.add("hidden");
+      errorEl.classList.remove("hidden");
+    }
+  }
+
+  loadGallery();
+</script>
