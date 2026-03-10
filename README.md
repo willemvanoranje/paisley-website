@@ -4,7 +4,7 @@ A clean, minimal photography portfolio website built with Astro and Tailwind CSS
 
 ## Pages
 
-- **Portfolio** (`/`) — Masonry-style photo gallery with lightbox viewer
+- **Portfolio** (`/`) — Masonry-style photo gallery with lightbox viewer.
 - **About** (`/about`) — Bio, experience timeline, skills grid, and education
 - **Contact** (`/contact`) — Contact form with Cloudflare Turnstile verification
 
