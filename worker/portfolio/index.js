@@ -1,4 +1,10 @@
 const MANIFEST_KEY = "_manifest.json";
+const PROJECTS_MANIFEST_KEY = "_projects_manifest.json";
+
+const COLLECTIONS = {
+  portfolio: { manifestKey: MANIFEST_KEY, keyPrefix: "" },
+  projects: { manifestKey: PROJECTS_MANIFEST_KEY, keyPrefix: "projects/" },
+};
 
 const ALLOWED_ORIGINS = [
   "https://paisleys.work",
@@ -15,6 +21,16 @@ const IMAGE_TYPES = {
   ".gif": "image/gif",
 };
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function normalizePalette(palette) {
+  if (palette === undefined) return undefined;
+  if (!Array.isArray(palette) || palette.length !== 4 || !palette.every((color) => typeof color === "string" && HEX_COLOR.test(color))) {
+    return null;
+  }
+  return palette.map((color) => color.toUpperCase());
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -28,6 +44,9 @@ export default {
     try {
       if (path === "/api/images" && request.method === "GET") {
         return handleListImages(env, url, origin);
+      }
+      if (path === "/api/projects" && request.method === "GET") {
+        return handleListProjects(env, url, origin);
       }
 
       if (path.startsWith("/images/") && (request.method === "GET" || request.method === "HEAD")) {
@@ -50,13 +69,13 @@ export default {
           return handleAdminListImages(env, url, origin);
         }
         if (path === "/api/admin/upload" && request.method === "POST") {
-          return handleUpload(request, env, origin);
+          return handleUpload(request, env, url, origin);
         }
         if (path.startsWith("/api/admin/images/") && request.method === "DELETE") {
-          return handleDelete(path, env, origin);
+          return handleDelete(path, env, url, origin);
         }
         if (path === "/api/admin/manifest" && request.method === "PUT") {
-          return handleUpdateManifest(request, env, origin);
+          return handleUpdateManifest(request, env, url, origin);
         }
       }
 
@@ -75,26 +94,51 @@ function checkAuth(request, env) {
   return null;
 }
 
-async function getManifest(env) {
-  const obj = await env.PORTFOLIO_BUCKET.get(MANIFEST_KEY);
+function getCollection(url) {
+  const name = url.searchParams.get("collection") || "portfolio";
+  return COLLECTIONS[name] ? name : null;
+}
+
+async function getManifest(env, collection = "portfolio") {
+  const obj = await env.PORTFOLIO_BUCKET.get(COLLECTIONS[collection].manifestKey);
   if (!obj) return { images: [] };
   return obj.json();
 }
 
-async function saveManifest(env, manifest) {
-  await env.PORTFOLIO_BUCKET.put(MANIFEST_KEY, JSON.stringify(manifest, null, 2), {
+async function saveManifest(env, collection, manifest) {
+  await env.PORTFOLIO_BUCKET.put(COLLECTIONS[collection].manifestKey, JSON.stringify(manifest, null, 2), {
     httpMetadata: { contentType: "application/json" },
   });
 }
 
+function imageUrl(baseUrl, key) {
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  return `${baseUrl}/images/${encodedKey}`;
+}
+
 async function handleListImages(env, url, origin) {
-  const manifest = await getManifest(env);
+  const manifest = await getManifest(env, "portfolio");
   const baseUrl = `${url.protocol}//${url.host}`;
   const images = manifest.images
     .filter((img) => img.visible !== false)
     .map((img) => ({
-      src: `${baseUrl}/images/${img.key}`,
+      src: imageUrl(baseUrl, img.key),
       alt: img.alt || "",
+    }));
+  return corsResponse(200, { images }, origin);
+}
+
+async function handleListProjects(env, url, origin) {
+  const manifest = await getManifest(env, "projects");
+  const baseUrl = `${url.protocol}//${url.host}`;
+  const images = manifest.images
+    .filter((img) => img.visible !== false)
+    .map((img) => ({ ...img, palette: normalizePalette(img.palette) }))
+    .filter((img) => img.palette)
+    .map((img) => ({
+      src: imageUrl(baseUrl, img.key),
+      alt: img.alt || "",
+      palette: img.palette,
     }));
   return corsResponse(200, { images }, origin);
 }
@@ -125,79 +169,141 @@ async function handleLogin(request, env, origin) {
 }
 
 async function handleAdminListImages(env, url, origin) {
-  const manifest = await getManifest(env);
+  const collection = getCollection(url);
+  if (!collection) return corsResponse(400, { error: "Invalid collection" }, origin);
+  const manifest = await getManifest(env, collection);
   const baseUrl = `${url.protocol}//${url.host}`;
-  const images = manifest.images.map((img) => ({
-    ...img,
-    src: `${baseUrl}/images/${img.key}`,
-  }));
+  const images = manifest.images.map((img) => {
+    const entry = {
+      key: img.key,
+      alt: img.alt || "",
+      visible: img.visible !== false,
+      src: imageUrl(baseUrl, img.key),
+    };
+    if (collection === "projects") entry.palette = normalizePalette(img.palette);
+    return entry;
+  });
   return corsResponse(200, { images }, origin);
 }
 
-async function handleUpload(request, env, origin) {
+async function handleUpload(request, env, url, origin) {
+  const collection = getCollection(url);
+  if (!collection) return corsResponse(400, { error: "Invalid collection" }, origin);
+
   const formData = await request.formData();
   const files = formData.getAll("files");
-  const manifest = await getManifest(env);
+  if (files.length === 0 || files.some((file) => !(file instanceof File))) {
+    return corsResponse(400, { error: "At least one image file is required" }, origin);
+  }
+
+  let palettes = [];
+  if (collection === "projects") {
+    try {
+      palettes = JSON.parse(formData.get("palettes") || "[]");
+    } catch {
+      return corsResponse(400, { error: "Project palettes must be valid JSON" }, origin);
+    }
+    if (!Array.isArray(palettes) || palettes.length !== files.length) {
+      return corsResponse(400, { error: "Every project image requires a four-color palette" }, origin);
+    }
+    palettes = palettes.map(normalizePalette);
+    if (palettes.some((palette) => !palette)) {
+      return corsResponse(400, { error: "Every project palette must contain exactly four six-digit hex colors" }, origin);
+    }
+  }
+
+  const manifest = await getManifest(env, collection);
   const uploaded = [];
+  const pending = [];
 
-  for (const file of files) {
-    if (!(file instanceof File)) continue;
-
+  for (const [index, file] of files.entries()) {
     const ext = "." + file.name.split(".").pop().toLowerCase();
-    if (!IMAGE_TYPES[ext]) continue;
+    if (!IMAGE_TYPES[ext]) {
+      return corsResponse(400, { error: `Unsupported image type: ${file.name}` }, origin);
+    }
 
     const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
-    let key = sanitized;
+    const prefix = COLLECTIONS[collection].keyPrefix;
+    let key = prefix + sanitized;
     let counter = 1;
-    while (manifest.images.some((img) => img.key === key)) {
-      const base = sanitized.replace(ext, "");
-      key = `${base}-${counter}${ext}`;
+    while (manifest.images.some((img) => img.key === key) || pending.some((item) => item.key === key)) {
+      const base = sanitized.slice(0, -ext.length);
+      key = `${prefix}${base}-${counter}${ext}`;
       counter++;
     }
 
-    await env.PORTFOLIO_BUCKET.put(key, file.stream(), {
-      httpMetadata: { contentType: IMAGE_TYPES[ext] },
-    });
-
-    const name = key.replace(ext, "").replace(/[-_]/g, " ");
+    const name = sanitized.slice(0, -ext.length).replace(/[-_]/g, " ");
     const entry = { key, alt: name, visible: true };
-    manifest.images.push(entry);
-    uploaded.push(entry);
+    if (collection === "projects") entry.palette = palettes[index];
+    pending.push({ file, ext, key, entry });
   }
 
-  await saveManifest(env, manifest);
+  try {
+    for (const item of pending) {
+      await env.PORTFOLIO_BUCKET.put(item.key, item.file.stream(), {
+        httpMetadata: { contentType: IMAGE_TYPES[item.ext] },
+      });
+      uploaded.push(item.entry);
+    }
+    manifest.images.push(...uploaded);
+    await saveManifest(env, collection, manifest);
+  } catch (error) {
+    for (const entry of uploaded) await env.PORTFOLIO_BUCKET.delete(entry.key);
+    throw error;
+  }
+
   return corsResponse(200, { uploaded, total: manifest.images.length }, origin);
 }
 
-async function handleDelete(path, env, origin) {
+async function handleDelete(path, env, url, origin) {
+  const collection = getCollection(url);
+  if (!collection) return corsResponse(400, { error: "Invalid collection" }, origin);
   const key = decodeURIComponent(path.replace("/api/admin/images/", ""));
-  await env.PORTFOLIO_BUCKET.delete(key);
+  const manifest = await getManifest(env, collection);
+  if (!manifest.images.some((img) => img.key === key)) {
+    return corsResponse(404, { error: "Image not found in collection" }, origin);
+  }
 
-  const manifest = await getManifest(env);
   manifest.images = manifest.images.filter((img) => img.key !== key);
-  await saveManifest(env, manifest);
+  await saveManifest(env, collection, manifest);
+  await env.PORTFOLIO_BUCKET.delete(key);
 
   return corsResponse(200, { success: true, deleted: key }, origin);
 }
 
-async function handleUpdateManifest(request, env, origin) {
+async function handleUpdateManifest(request, env, url, origin) {
+  const collection = getCollection(url);
+  if (!collection) return corsResponse(400, { error: "Invalid collection" }, origin);
   const body = await request.json();
   if (!Array.isArray(body.images)) {
     return corsResponse(400, { error: "images array required" }, origin);
   }
 
-  const manifest = await getManifest(env);
+  const manifest = await getManifest(env, collection);
   const existingKeys = new Set(manifest.images.map((img) => img.key));
+  const submittedKeys = body.images.map((img) => img.key);
+  if (submittedKeys.length !== existingKeys.size || new Set(submittedKeys).size !== submittedKeys.length || submittedKeys.some((key) => !existingKeys.has(key))) {
+    return corsResponse(400, { error: "Manifest must include every image in the collection exactly once" }, origin);
+  }
 
-  const updated = body.images
-    .filter((img) => existingKeys.has(img.key))
-    .map((img) => ({
+  const updated = [];
+  for (const img of body.images) {
+    const entry = {
       key: img.key,
       alt: img.alt || "",
       visible: img.visible !== false,
-    }));
+    };
+    if (collection === "projects") {
+      const palette = normalizePalette(img.palette);
+      if (!palette) {
+        return corsResponse(400, { error: `Palette for ${img.key} must contain exactly four six-digit hex colors` }, origin);
+      }
+      entry.palette = palette;
+    }
+    updated.push(entry);
+  }
 
-  await saveManifest(env, { images: updated });
+  await saveManifest(env, collection, { images: updated });
   return corsResponse(200, { success: true, count: updated.length }, origin);
 }
 
@@ -236,6 +342,10 @@ const ADMIN_HTML = `<!DOCTYPE html>
   .sortable-drag { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(1.05); }
   .upload-zone.dragover { border-color: #374151; background: #f9fafb; }
   .toast { animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards; }
+  .palette-color { appearance: none; border: 0; padding: 0; background: transparent; }
+  .palette-color::-webkit-color-swatch-wrapper { padding: 0; }
+  .palette-color::-webkit-color-swatch { border: 1px solid #d1d5db; border-radius: 0.375rem; }
+  .palette-color::-moz-color-swatch { border: 1px solid #d1d5db; border-radius: 0.375rem; }
   @keyframes slideIn { from { transform: translateY(-1rem); opacity: 0; } }
   @keyframes fadeOut { to { opacity: 0; } }
 </style>
@@ -247,6 +357,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <script>
 const API = location.origin;
 let password = sessionStorage.getItem("admin_pw") || "";
+let collection = "portfolio";
 let images = [];
 let hasChanges = false;
 let sortable = null;
@@ -273,6 +384,73 @@ function toast(msg, type = "success") {
   setTimeout(() => t.remove(), 3000);
 }
 
+function isHexColor(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+function colorToHex(red, green, blue) {
+  return "#" + [red, green, blue].map(value => Math.round(value).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+async function extractDominantPalette(src) {
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.src = src;
+  await image.decode();
+
+  const maxSize = 160;
+  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const buckets = new Map();
+  for (let index = 0; index < pixels.length; index += 16) {
+    if (pixels[index + 3] < 128) continue;
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    const key = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
+    const bucket = buckets.get(key) || { count: 0, red: 0, green: 0, blue: 0 };
+    bucket.count++;
+    bucket.red += red;
+    bucket.green += green;
+    bucket.blue += blue;
+    buckets.set(key, bucket);
+  }
+
+  const candidates = [...buckets.values()]
+    .sort((a, b) => b.count - a.count)
+    .map(bucket => ({
+      count: bucket.count,
+      red: bucket.red / bucket.count,
+      green: bucket.green / bucket.count,
+      blue: bucket.blue / bucket.count,
+    }));
+
+  const selected = [];
+  for (const color of candidates) {
+    const isDistinct = selected.every(existing => {
+      const red = color.red - existing.red;
+      const green = color.green - existing.green;
+      const blue = color.blue - existing.blue;
+      return red * red + green * green + blue * blue >= 1200;
+    });
+    if (isDistinct) selected.push(color);
+    if (selected.length === 4) break;
+  }
+  for (const color of candidates) {
+    if (selected.length === 4) break;
+    if (!selected.includes(color)) selected.push(color);
+  }
+  if (selected.length === 0) throw new Error("No opaque colors found");
+  while (selected.length < 4) selected.push(selected[selected.length - 1]);
+  return selected.map(color => colorToHex(color.red, color.green, color.blue));
+}
+
 async function apiFetch(path, opts = {}) {
   const res = await fetch(API + path, {
     ...opts,
@@ -283,10 +461,18 @@ async function apiFetch(path, opts = {}) {
 }
 
 async function loadImages() {
-  const res = await apiFetch("/api/admin/images");
+  const res = await apiFetch("/api/admin/images?collection=" + collection);
   const data = await res.json();
   images = data.images || [];
   hasChanges = false;
+}
+
+async function switchCollection(nextCollection) {
+  if (nextCollection === collection) return;
+  if (hasChanges && !confirm("Discard unsaved changes?")) return;
+  collection = nextCollection;
+  await loadImages();
+  render();
 }
 
 function destroySortable() {
@@ -321,7 +507,7 @@ function renderLogin() {
       } catch { toast("Connection failed", "error"); }
     },
   },
-    h("h1", { className: "text-2xl font-semibold text-center mb-6 tracking-wide" }, "Portfolio Manager"),
+    h("h1", { className: "text-2xl font-semibold text-center mb-6 tracking-wide" }, "Image Manager"),
     h("input", { type: "password", placeholder: "Password", required: "true", autocomplete: "current-password",
       className: "w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 mb-4" }),
     h("button", { type: "submit", className: "w-full py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium" }, "Sign In")
@@ -334,7 +520,7 @@ function renderDashboard() {
 
   const header = h("header", { className: "bg-white border-b border-gray-200 sticky top-0 z-40" },
     h("div", { className: "max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between" },
-      h("h1", { className: "text-lg font-semibold tracking-wide" }, "Portfolio Manager"),
+      h("h1", { className: "text-lg font-semibold tracking-wide" }, "Image Manager"),
       h("div", { className: "flex items-center gap-3" },
         h("span", { className: "text-sm text-gray-500" }, images.length + " photo" + (images.length !== 1 ? "s" : "")),
         h("button", {
@@ -357,15 +543,19 @@ function renderDashboard() {
         (() => { const p = document.createElementNS("http://www.w3.org/2000/svg","path"); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round"); p.setAttribute("d","M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"); return p; })()
       )
     ),
-    h("p", { className: "text-gray-600 font-medium" }, "Drop images here or click to upload"),
-    h("p", { className: "text-sm text-gray-400 mt-1" }, "JPG, PNG, WebP, AVIF, GIF")
+    h("p", { className: "text-gray-600 font-medium" }, "Drop " + collectionLabel().toLowerCase() + " images here or click to upload"),
+    h("p", { className: "text-sm text-gray-400 mt-1" },
+      collection === "projects"
+        ? "A four-color palette is generated for every image"
+        : "JPG, PNG, WebP, AVIF, GIF"
+    )
   );
 
   const fileInput = h("input", { type: "file", multiple: "true", accept: "image/*", className: "hidden",
     onChange: async (e) => { await uploadFiles(e.target.files); e.target.value = ""; }
   });
 
-  const grid = h("div", { id: "image-grid", className: "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4" });
+  const grid = h("div", { id: "image-grid", className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" });
   images.forEach((img, i) => grid.appendChild(renderImageCard(img, i)));
 
   const emptyState = images.length === 0
@@ -384,13 +574,29 @@ function renderDashboard() {
   ) : null;
 
   const main = h("main", { className: "max-w-6xl mx-auto px-4 sm:px-6 py-8 flex-1 space-y-6" + (hasChanges ? " pb-24" : "") },
-    uploadZone, fileInput, grid
+    renderCollectionTabs(), uploadZone, fileInput, grid
   );
 
   wrap.appendChild(header);
   wrap.appendChild(main);
   if (saveBar) wrap.appendChild(saveBar);
   return wrap;
+}
+
+function collectionLabel() {
+  return collection === "projects" ? "Projects" : "Portfolio";
+}
+
+function renderCollectionTabs() {
+  return h("div", { className: "inline-flex rounded-lg border border-gray-200 bg-white p-1" },
+    ...["portfolio", "projects"].map(name =>
+      h("button", {
+        className: "px-5 py-2 rounded-md text-sm font-medium transition-colors " +
+          (collection === name ? "bg-gray-800 text-white" : "text-gray-500 hover:text-gray-900"),
+        onClick: () => switchCollection(name),
+      }, name === "projects" ? "Projects" : "Portfolio")
+    )
+  );
 }
 
 function renderImageCard(img) {
@@ -408,6 +614,7 @@ function renderImageCard(img) {
         className: "w-full text-sm px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400",
         onInput: (e) => { img.alt = e.target.value; hasChanges = true; renderSaveBar(); },
       }),
+      collection === "projects" ? renderPaletteEditor(img) : null,
       h("div", { className: "flex items-center justify-between" },
         h("label", { className: "flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer" },
           (() => {
@@ -425,13 +632,82 @@ function renderImageCard(img) {
         }, "Delete")
       )
     ),
-    h("div", { className: "absolute top-2 left-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/80 rounded p-1", title: "Hold to drag & reorder" },
+    h("div", { className: "drag-handle absolute top-2 left-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/80 rounded p-1 touch-none", title: "Drag to reorder" },
       h("svg", { className: "w-4 h-4 text-gray-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", "stroke-width": "2" },
         (() => { const p = document.createElementNS("http://www.w3.org/2000/svg","path"); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round"); p.setAttribute("d","M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"); return p; })()
       )
     )
   );
   return card;
+}
+
+function renderPaletteEditor(img) {
+  if (!Array.isArray(img.palette) || img.palette.length !== 4 || !img.palette.every(isHexColor)) {
+    return h("p", { className: "text-xs text-red-500" }, "This project is missing its required palette.");
+  }
+
+  const rows = img.palette.map((color, index) => {
+    const textInput = h("input", {
+      type: "text",
+      value: color.toUpperCase(),
+      maxlength: "7",
+      "aria-label": "Palette color " + (index + 1),
+      className: "min-w-0 flex-1 font-mono text-xs uppercase px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400",
+    });
+    const colorInput = h("input", {
+      type: "color",
+      value: color,
+      "aria-label": "Choose palette color " + (index + 1),
+      className: "palette-color w-9 h-8 cursor-pointer",
+      onInput: (event) => {
+        const value = event.target.value.toUpperCase();
+        img.palette[index] = value;
+        textInput.value = value;
+        hasChanges = true;
+        renderSaveBar();
+      },
+    });
+    textInput.addEventListener("input", (event) => {
+      const value = event.target.value.trim().toUpperCase();
+      if (!isHexColor(value)) return;
+      img.palette[index] = value;
+      colorInput.value = value;
+      hasChanges = true;
+      renderSaveBar();
+    });
+    textInput.addEventListener("blur", () => {
+      if (!isHexColor(textInput.value.trim())) {
+        textInput.value = img.palette[index];
+        toast("Use a six-digit hex color such as #AABBCC", "error");
+      }
+    });
+    return h("div", { className: "flex items-center gap-2" }, colorInput, textInput);
+  });
+
+  return h("div", { className: "pt-1 space-y-2" },
+    h("span", { className: "block text-xs font-medium text-gray-600" }, "Color palette"),
+    h("div", { className: "grid grid-cols-2 gap-2" }, rows),
+    h("button", {
+      className: "generate-palette w-full text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors",
+      onClick: (event) => generatePalette(img, event.currentTarget),
+    }, "Regenerate from image")
+  );
+}
+
+async function generatePalette(img, button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Generating...";
+  try {
+    img.palette = await extractDominantPalette(img.src);
+    hasChanges = true;
+    render();
+    toast("Palette generated — review and save it");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = originalText;
+    toast("Could not read image colors: " + error.message, "error");
+  }
 }
 
 function renderSaveBar() {
@@ -468,8 +744,9 @@ function initSortable() {
     ghostClass: "sortable-ghost",
     dragClass: "sortable-drag",
     chosenClass: "sortable-chosen",
-    delay: 400,
-    delayOnTouchOnly: false,
+    handle: ".drag-handle",
+    delay: 150,
+    delayOnTouchOnly: true,
     touchStartThreshold: 8,
     filter: "input, button, label, a",
     preventOnFilter: false,
@@ -489,12 +766,29 @@ function initSortable() {
 
 async function uploadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
+  const targetCollection = collection;
+  const files = [...fileList];
   const form = new FormData();
-  for (const f of fileList) form.append("files", f);
-  toast("Uploading " + fileList.length + " file(s)...");
   try {
-    const res = await apiFetch("/api/admin/upload", { method: "POST", body: form });
+    if (targetCollection === "projects") {
+      toast("Generating palettes for " + files.length + " image(s)...");
+      const palettes = [];
+      for (const file of files) {
+        const objectUrl = URL.createObjectURL(file);
+        try {
+          palettes.push(await extractDominantPalette(objectUrl));
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+      form.append("palettes", JSON.stringify(palettes));
+    } else {
+      toast("Uploading " + files.length + " file(s)...");
+    }
+    for (const file of files) form.append("files", file);
+    const res = await apiFetch("/api/admin/upload?collection=" + targetCollection, { method: "POST", body: form });
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
     toast(data.uploaded.length + " image(s) uploaded");
     destroySortable();
     await loadImages();
@@ -505,7 +799,11 @@ async function uploadFiles(fileList) {
 async function deleteImage(key) {
   if (!confirm("Delete this image?")) return;
   try {
-    await apiFetch("/api/admin/images/" + encodeURIComponent(key), { method: "DELETE" });
+    const res = await apiFetch("/api/admin/images/" + encodeURIComponent(key) + "?collection=" + collection, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Request failed");
+    }
     toast("Image deleted");
     destroySortable();
     await loadImages();
@@ -515,11 +813,22 @@ async function deleteImage(key) {
 
 async function saveChanges() {
   try {
-    await apiFetch("/api/admin/manifest", {
+    const res = await apiFetch("/api/admin/manifest?collection=" + collection, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ images: images.map(i => ({ key: i.key, alt: i.alt, visible: i.visible })) }),
+      body: JSON.stringify({
+        images: images.map(i => ({
+          key: i.key,
+          alt: i.alt,
+          visible: i.visible,
+          ...(collection === "projects" ? { palette: i.palette } : {}),
+        })),
+      }),
     });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Request failed");
+    }
     hasChanges = false;
     toast("Changes saved");
     renderSaveBar();
