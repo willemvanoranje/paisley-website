@@ -142,6 +142,8 @@ test("admin page exposes palette generation and editing controls", async () => {
   assert.match(html, /Generate from image/);
   assert.match(html, /extractDominantPalette/);
   assert.match(html, /type: "color"/);
+  assert.match(html, /handle: "\.drag-handle"/);
+  assert.match(html, /delayOnTouchOnly: true/);
 
   const inlineScript = html.match(/<script>\n([\s\S]*?)<\/script>/)?.[1];
   assert.ok(inlineScript);

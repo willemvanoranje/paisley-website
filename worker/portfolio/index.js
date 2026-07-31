@@ -516,7 +516,7 @@ function renderImageCard(img) {
         }, "Delete")
       )
     ),
-    h("div", { className: "absolute top-2 left-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/80 rounded p-1", title: "Hold to drag & reorder" },
+    h("div", { className: "drag-handle absolute top-2 left-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white/80 rounded p-1 touch-none", title: "Drag to reorder" },
       h("svg", { className: "w-4 h-4 text-gray-500", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", "stroke-width": "2" },
         (() => { const p = document.createElementNS("http://www.w3.org/2000/svg","path"); p.setAttribute("stroke-linecap","round"); p.setAttribute("stroke-linejoin","round"); p.setAttribute("d","M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"); return p; })()
       )
@@ -652,8 +652,9 @@ function initSortable() {
     ghostClass: "sortable-ghost",
     dragClass: "sortable-drag",
     chosenClass: "sortable-chosen",
-    delay: 400,
-    delayOnTouchOnly: false,
+    handle: ".drag-handle",
+    delay: 150,
+    delayOnTouchOnly: true,
     touchStartThreshold: 8,
     filter: "input, button, label, a",
     preventOnFilter: false,
