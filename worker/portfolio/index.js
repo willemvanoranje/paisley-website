@@ -15,6 +15,16 @@ const IMAGE_TYPES = {
   ".gif": "image/gif",
 };
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function normalizePalette(palette) {
+  if (palette === undefined) return undefined;
+  if (!Array.isArray(palette) || palette.length !== 4 || !palette.every((color) => typeof color === "string" && HEX_COLOR.test(color))) {
+    return null;
+  }
+  return palette.map((color) => color.toUpperCase());
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -189,13 +199,21 @@ async function handleUpdateManifest(request, env, origin) {
   const manifest = await getManifest(env);
   const existingKeys = new Set(manifest.images.map((img) => img.key));
 
-  const updated = body.images
-    .filter((img) => existingKeys.has(img.key))
-    .map((img) => ({
+  const updated = [];
+  for (const img of body.images.filter((item) => existingKeys.has(item.key))) {
+    const palette = normalizePalette(img.palette);
+    if (palette === null) {
+      return corsResponse(400, { error: `Palette for ${img.key} must contain exactly four six-digit hex colors` }, origin);
+    }
+
+    const entry = {
       key: img.key,
       alt: img.alt || "",
       visible: img.visible !== false,
-    }));
+    };
+    if (palette) entry.palette = palette;
+    updated.push(entry);
+  }
 
   await saveManifest(env, { images: updated });
   return corsResponse(200, { success: true, count: updated.length }, origin);
@@ -236,6 +254,10 @@ const ADMIN_HTML = `<!DOCTYPE html>
   .sortable-drag { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); transform: scale(1.05); }
   .upload-zone.dragover { border-color: #374151; background: #f9fafb; }
   .toast { animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards; }
+  .palette-color { appearance: none; border: 0; padding: 0; background: transparent; }
+  .palette-color::-webkit-color-swatch-wrapper { padding: 0; }
+  .palette-color::-webkit-color-swatch { border: 1px solid #d1d5db; border-radius: 0.375rem; }
+  .palette-color::-moz-color-swatch { border: 1px solid #d1d5db; border-radius: 0.375rem; }
   @keyframes slideIn { from { transform: translateY(-1rem); opacity: 0; } }
   @keyframes fadeOut { to { opacity: 0; } }
 </style>
@@ -271,6 +293,73 @@ function toast(msg, type = "success") {
   const t = h("div", { className: "toast fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg text-sm " + colors[type] }, msg);
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3000);
+}
+
+function isHexColor(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+function colorToHex(red, green, blue) {
+  return "#" + [red, green, blue].map(value => Math.round(value).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+async function extractDominantPalette(src) {
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.src = src;
+  await image.decode();
+
+  const maxSize = 160;
+  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const buckets = new Map();
+  for (let index = 0; index < pixels.length; index += 16) {
+    if (pixels[index + 3] < 128) continue;
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    const key = ((red >> 4) << 8) | ((green >> 4) << 4) | (blue >> 4);
+    const bucket = buckets.get(key) || { count: 0, red: 0, green: 0, blue: 0 };
+    bucket.count++;
+    bucket.red += red;
+    bucket.green += green;
+    bucket.blue += blue;
+    buckets.set(key, bucket);
+  }
+
+  const candidates = [...buckets.values()]
+    .sort((a, b) => b.count - a.count)
+    .map(bucket => ({
+      count: bucket.count,
+      red: bucket.red / bucket.count,
+      green: bucket.green / bucket.count,
+      blue: bucket.blue / bucket.count,
+    }));
+
+  const selected = [];
+  for (const color of candidates) {
+    const isDistinct = selected.every(existing => {
+      const red = color.red - existing.red;
+      const green = color.green - existing.green;
+      const blue = color.blue - existing.blue;
+      return red * red + green * green + blue * blue >= 1200;
+    });
+    if (isDistinct) selected.push(color);
+    if (selected.length === 4) break;
+  }
+  for (const color of candidates) {
+    if (selected.length === 4) break;
+    if (!selected.includes(color)) selected.push(color);
+  }
+  if (selected.length === 0) throw new Error("No opaque colors found");
+  while (selected.length < 4) selected.push(selected[selected.length - 1]);
+  return selected.map(color => colorToHex(color.red, color.green, color.blue));
 }
 
 async function apiFetch(path, opts = {}) {
@@ -365,7 +454,7 @@ function renderDashboard() {
     onChange: async (e) => { await uploadFiles(e.target.files); e.target.value = ""; }
   });
 
-  const grid = h("div", { id: "image-grid", className: "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4" });
+  const grid = h("div", { id: "image-grid", className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" });
   images.forEach((img, i) => grid.appendChild(renderImageCard(img, i)));
 
   const emptyState = images.length === 0
@@ -394,6 +483,7 @@ function renderDashboard() {
 }
 
 function renderImageCard(img) {
+  const paletteEditor = renderPaletteEditor(img);
   const card = h("div", {
     className: "group relative bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow",
     "data-key": img.key,
@@ -408,6 +498,7 @@ function renderImageCard(img) {
         className: "w-full text-sm px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400",
         onInput: (e) => { img.alt = e.target.value; hasChanges = true; renderSaveBar(); },
       }),
+      paletteEditor,
       h("div", { className: "flex items-center justify-between" },
         h("label", { className: "flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer" },
           (() => {
@@ -432,6 +523,99 @@ function renderImageCard(img) {
     )
   );
   return card;
+}
+
+function renderPaletteEditor(img) {
+  if (!Array.isArray(img.palette) || img.palette.length !== 4 || !img.palette.every(isHexColor)) {
+    delete img.palette;
+    return h("div", { className: "pt-1 space-y-2" },
+      h("button", {
+        className: "w-full text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors",
+        onClick: () => {
+          img.palette = ["#111827", "#4B5563", "#9CA3AF", "#F3F4F6"];
+          hasChanges = true;
+          render();
+        },
+      }, "Add color palette"),
+      h("button", {
+        className: "generate-palette w-full text-xs px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors",
+        onClick: (event) => generatePalette(img, event.currentTarget),
+      }, "Generate from image")
+    );
+  }
+
+  const rows = img.palette.map((color, index) => {
+    const textInput = h("input", {
+      type: "text",
+      value: color.toUpperCase(),
+      maxlength: "7",
+      "aria-label": "Palette color " + (index + 1),
+      className: "min-w-0 flex-1 font-mono text-xs uppercase px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400",
+    });
+    const colorInput = h("input", {
+      type: "color",
+      value: color,
+      "aria-label": "Choose palette color " + (index + 1),
+      className: "palette-color w-9 h-8 cursor-pointer",
+      onInput: (event) => {
+        const value = event.target.value.toUpperCase();
+        img.palette[index] = value;
+        textInput.value = value;
+        hasChanges = true;
+        renderSaveBar();
+      },
+    });
+    textInput.addEventListener("input", (event) => {
+      const value = event.target.value.trim().toUpperCase();
+      if (!isHexColor(value)) return;
+      img.palette[index] = value;
+      colorInput.value = value;
+      hasChanges = true;
+      renderSaveBar();
+    });
+    textInput.addEventListener("blur", () => {
+      if (!isHexColor(textInput.value.trim())) {
+        textInput.value = img.palette[index];
+        toast("Use a six-digit hex color such as #AABBCC", "error");
+      }
+    });
+    return h("div", { className: "flex items-center gap-2" }, colorInput, textInput);
+  });
+
+  return h("div", { className: "pt-1 space-y-2" },
+    h("div", { className: "flex items-center justify-between" },
+      h("span", { className: "text-xs font-medium text-gray-600" }, "Color palette"),
+      h("button", {
+        className: "text-xs text-red-400 hover:text-red-600 transition-colors",
+        onClick: () => {
+          delete img.palette;
+          hasChanges = true;
+          render();
+        },
+      }, "Remove")
+    ),
+    h("div", { className: "grid grid-cols-2 gap-2" }, rows),
+    h("button", {
+      className: "generate-palette w-full text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors",
+      onClick: (event) => generatePalette(img, event.currentTarget),
+    }, "Regenerate from image")
+  );
+}
+
+async function generatePalette(img, button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Generating...";
+  try {
+    img.palette = await extractDominantPalette(img.src);
+    hasChanges = true;
+    render();
+    toast("Palette generated — review and save it");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = originalText;
+    toast("Could not read image colors: " + error.message, "error");
+  }
 }
 
 function renderSaveBar() {
@@ -515,11 +699,15 @@ async function deleteImage(key) {
 
 async function saveChanges() {
   try {
-    await apiFetch("/api/admin/manifest", {
+    const res = await apiFetch("/api/admin/manifest", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ images: images.map(i => ({ key: i.key, alt: i.alt, visible: i.visible })) }),
+      body: JSON.stringify({ images: images.map(i => ({ key: i.key, alt: i.alt, visible: i.visible, palette: i.palette })) }),
     });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Request failed");
+    }
     hasChanges = false;
     toast("Changes saved");
     renderSaveBar();
