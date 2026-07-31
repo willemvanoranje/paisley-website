@@ -766,10 +766,11 @@ function initSortable() {
 
 async function uploadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
+  const targetCollection = collection;
   const files = [...fileList];
   const form = new FormData();
   try {
-    if (collection === "projects") {
+    if (targetCollection === "projects") {
       toast("Generating palettes for " + files.length + " image(s)...");
       const palettes = [];
       for (const file of files) {
@@ -785,7 +786,7 @@ async function uploadFiles(fileList) {
       toast("Uploading " + files.length + " file(s)...");
     }
     for (const file of files) form.append("files", file);
-    const res = await apiFetch("/api/admin/upload?collection=" + collection, { method: "POST", body: form });
+    const res = await apiFetch("/api/admin/upload?collection=" + targetCollection, { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     toast(data.uploaded.length + " image(s) uploaded");
