@@ -1,10 +1,13 @@
 import { spawn } from "node:child_process";
 import { access, copyFile } from "node:fs/promises";
+import { createConnection } from "node:net";
 
 const runner = process.platform === "win32" ? "npx.cmd" : "npx";
 
 await ensureLocalFile(".env", ".env.example");
 await ensureLocalFile("worker/portfolio/.dev.vars", "worker/portfolio/.dev.vars.example");
+await assertPortAvailable(4321, "website");
+await assertPortAvailable(8787, "portfolio API");
 
 const processes = [
   spawn(runner, [
@@ -51,4 +54,15 @@ async function ensureLocalFile(file, example) {
     await copyFile(example, file);
     console.log(`Created local ${file} from ${example}`);
   }
+}
+
+function assertPortAvailable(port, service) {
+  return new Promise((resolve, reject) => {
+    const probe = createConnection({ host: "127.0.0.1", port });
+    probe.once("connect", () => {
+      probe.destroy();
+      reject(new Error(`Port ${port} is already in use; stop the existing ${service} preview and try again.`));
+    });
+    probe.once("error", () => resolve());
+  });
 }
