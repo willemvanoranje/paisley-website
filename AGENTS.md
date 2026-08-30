@@ -13,7 +13,7 @@ IMPORTANT: Execute these steps in order for local testing to work. Do not skip a
 
 1. Confirm that `node`, `npm`, and `npx` are available. If any is missing, stop and install Node.js LTS before continuing.
 2. Run `npm install` from the project folder.
-3. Run `npm run dev:all`. This starts the local Cloudflare Worker and the Astro website together. Do not start Astro by itself: the gallery depends on the local API at `http://localhost:8787`.
+3. Run `npm run dev:all`. This creates the ignored local `.env` and `worker/portfolio/.dev.vars` files from their committed examples, then starts the local Cloudflare Worker and Astro website together. Do not start Astro by itself: the gallery depends on the local API at `http://localhost:8787`.
 4. Wait until both services are ready. Confirm that `http://localhost:4321/` responds and that `http://localhost:8787/api/images` returns an image list.
 5. Open `http://localhost:4321/` in the browser preview and look at the rendered website. Always visually inspect the result; a successful build is not enough.
 6. Interact with the affected features in the browser. For gallery work, check the gallery, navigation, lightbox, and responsive layout when relevant. Also check `http://localhost:4321/admin` and confirm it reaches the local upload manager.

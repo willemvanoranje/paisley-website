@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
+import { access, copyFile } from "node:fs/promises";
 
 const runner = process.platform === "win32" ? "npx.cmd" : "npx";
+
+await ensureLocalFile(".env", ".env.example");
+await ensureLocalFile("worker/portfolio/.dev.vars", "worker/portfolio/.dev.vars.example");
 
 const processes = [
   spawn(runner, [
@@ -34,3 +38,12 @@ function stopAll() {
 for (const child of processes) child.on("exit", stopAll);
 process.on("SIGINT", stopAll);
 process.on("SIGTERM", stopAll);
+
+async function ensureLocalFile(file, example) {
+  try {
+    await access(file);
+  } catch {
+    await copyFile(example, file);
+    console.log(`Created local ${file} from ${example}`);
+  }
+}
