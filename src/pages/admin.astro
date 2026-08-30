@@ -1,0 +1,19 @@
+---
+const localAdminUrl = "http://localhost:8787/admin";
+---
+
+<html lang="en">
+  <head>
+    <meta http-equiv="refresh" content={`0;url=${localAdminUrl}`} />
+    <title>Opening Portfolio Manager</title>
+  </head>
+  <body>
+    <p>
+      Opening the Portfolio Manager…
+      <a href={localAdminUrl}>Continue</a>
+    </p>
+    <script define:vars={{ localAdminUrl }}>
+      window.location.replace(localAdminUrl);
+    </script>
+  </body>
+</html>

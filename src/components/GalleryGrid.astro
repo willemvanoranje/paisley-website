@@ -28,13 +28,8 @@ const apiUrl = import.meta.env.PUBLIC_PORTFOLIO_API_URL || "";
     const emptyEl = document.getElementById("gallery-empty")!;
     const errorEl = document.getElementById("gallery-error")!;
 
-    if (!apiUrl) {
-      loadingEl.classList.add("hidden");
-      emptyEl.classList.remove("hidden");
-      return;
-    }
-
     try {
+      if (!apiUrl) throw new Error("PUBLIC_PORTFOLIO_API_URL is not configured");
       const res = await fetch(`${apiUrl}/api/images`);
       if (!res.ok) throw new Error("API returned " + res.status);
       const data = await res.json();
