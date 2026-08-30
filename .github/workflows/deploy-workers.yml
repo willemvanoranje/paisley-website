@@ -10,17 +10,21 @@ jobs:
   deploy-contact-worker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cloudflare/wrangler-action@v3
+      - uses: actions/checkout@v6
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.127.1"
           workingDirectory: worker
 
   deploy-portfolio-worker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cloudflare/wrangler-action@v3
+      - uses: actions/checkout@v6
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.127.1"
           workingDirectory: worker/portfolio
