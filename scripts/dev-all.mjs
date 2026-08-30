@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { access, copyFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 
@@ -11,8 +11,8 @@ await assertPortAvailable(8787, "portfolio API");
 
 const processes = [
   spawn(runner, [
-    "--yes",
-    "wrangler@4.127.1",
+    "--no-install",
+    "wrangler",
     "dev",
     "--config",
     "worker/portfolio/wrangler.local.toml",
@@ -32,20 +32,25 @@ setTimeout(() => {
   });
 }, 3000);
 
-function stopAll() {
+let shuttingDown = false;
+
+function stopAll(exitCode) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   for (const child of processes) {
     if (child.killed) continue;
     if (process.platform === "win32") {
-      spawn("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+      spawnSync("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
     } else {
       child.kill();
     }
   }
+  if (exitCode !== undefined) process.exit(exitCode);
 }
 
-for (const child of processes) child.on("exit", stopAll);
-process.on("SIGINT", stopAll);
-process.on("SIGTERM", stopAll);
+for (const child of processes) child.on("exit", () => stopAll(1));
+process.on("SIGINT", () => stopAll(0));
+process.on("SIGTERM", () => stopAll(0));
 
 async function ensureLocalFile(file, example) {
   try {

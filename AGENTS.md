@@ -6,6 +6,7 @@ This project is a small Astro photography portfolio. Keep changes simple, readab
 
 - One-time computer setup: install the current Node.js LTS release. This provides both `npm` and `npx`; this project intentionally supports no alternate package runner. After installing Node.js, close and reopen the terminal or agent session so the new commands are visible.
 - Install dependencies with `npm install`.
+- Wrangler is installed locally by `npm install`; `npm run dev:all` uses `npx --no-install`, so it does not download Wrangler on each run.
 
 ## Mandatory dev-testing sequence
 
