@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev --host",
-    "dev:worker": "npx --yes wrangler@4.127.1 dev --config worker/portfolio/wrangler.local.toml --local --persist-to .wrangler/portfolio --port 8787",
+    "dev:worker": "npx --no-install wrangler dev --config worker/portfolio/wrangler.local.toml --local --persist-to .wrangler/portfolio --port 8787",
     "dev:all": "node scripts/dev-all.mjs",
     "build": "astro build",
     "preview": "astro preview --host",
@@ -14,5 +14,8 @@
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^5.17.1",
     "tailwindcss": "^4.2.1"
+  },
+  "devDependencies": {
+    "wrangler": "4.127.1"
   }
 }

@@ -1,9 +1,18 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { access, copyFile } from "node:fs/promises";
+import { createConnection } from "node:net";
+
+const runner = process.platform === "win32" ? "npx.cmd" : "npx";
+
+await ensureLocalFile(".env", ".env.example");
+await ensureLocalFile("worker/portfolio/.dev.vars", "worker/portfolio/.dev.vars.example");
+await assertPortAvailable(4321, "website");
+await assertPortAvailable(8787, "portfolio API");
 
 const processes = [
-  spawn(process.platform === "win32" ? "npx.cmd" : "npx", [
-    "--yes",
-    "wrangler@4.127.1",
+  spawn(runner, [
+    "--no-install",
+    "wrangler",
     "dev",
     "--config",
     "worker/portfolio/wrangler.local.toml",
@@ -12,7 +21,7 @@ const processes = [
     ".wrangler/portfolio",
     "--port",
     "8787",
-  ], { stdio: "inherit" }),
+  ], { stdio: "inherit", shell: process.platform === "win32" }),
   spawn(process.execPath, ["node_modules/astro/astro.js", "dev", "--host"], { stdio: "inherit" }),
 ];
 
@@ -23,12 +32,42 @@ setTimeout(() => {
   });
 }, 3000);
 
-function stopAll() {
+let shuttingDown = false;
+
+function stopAll(exitCode) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   for (const child of processes) {
-    if (!child.killed) child.kill();
+    if (child.killed) continue;
+    if (process.platform === "win32") {
+      spawnSync("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    } else {
+      child.kill();
+    }
+  }
+  if (exitCode !== undefined) process.exit(exitCode);
+}
+
+for (const child of processes) child.on("exit", () => stopAll(1));
+process.on("SIGINT", () => stopAll(0));
+process.on("SIGTERM", () => stopAll(0));
+
+async function ensureLocalFile(file, example) {
+  try {
+    await access(file);
+  } catch {
+    await copyFile(example, file);
+    console.log(`Created local ${file} from ${example}`);
   }
 }
 
-for (const child of processes) child.on("exit", stopAll);
-process.on("SIGINT", stopAll);
-process.on("SIGTERM", stopAll);
+function assertPortAvailable(port, service) {
+  return new Promise((resolve, reject) => {
+    const probe = createConnection({ host: "127.0.0.1", port });
+    probe.once("connect", () => {
+      probe.destroy();
+      reject(new Error(`Port ${port} is already in use; stop the existing ${service} preview and try again.`));
+    });
+    probe.once("error", () => resolve());
+  });
+}
