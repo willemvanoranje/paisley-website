@@ -31,7 +31,12 @@ setTimeout(() => {
 
 function stopAll() {
   for (const child of processes) {
-    if (!child.killed) child.kill();
+    if (child.killed) continue;
+    if (process.platform === "win32") {
+      spawn("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    } else {
+      child.kill();
+    }
   }
 }
 
