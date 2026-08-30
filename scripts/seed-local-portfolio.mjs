@@ -9,7 +9,7 @@ const apiUrl = process.env.LOCAL_PORTFOLIO_API_URL || "http://localhost:8787";
 const password = process.env.LOCAL_PORTFOLIO_PASSWORD || "local-dev-password";
 
 let existing;
-for (let attempt = 0; attempt < 20; attempt++) {
+for (let attempt = 0; attempt < 60; attempt++) {
   try {
     existing = await fetch(`${apiUrl}/api/images`);
     if (existing.ok) break;

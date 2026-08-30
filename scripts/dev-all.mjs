@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 
+const runner = process.platform === "win32" ? "npx.cmd" : "npx";
+
 const processes = [
-  spawn(process.platform === "win32" ? "npx.cmd" : "npx", [
+  spawn(runner, [
     "--yes",
     "wrangler@4.127.1",
     "dev",
@@ -12,7 +14,7 @@ const processes = [
     ".wrangler/portfolio",
     "--port",
     "8787",
-  ], { stdio: "inherit" }),
+  ], { stdio: "inherit", shell: process.platform === "win32" }),
   spawn(process.execPath, ["node_modules/astro/astro.js", "dev", "--host"], { stdio: "inherit" }),
 ];
 
