@@ -54,6 +54,36 @@ npm run dev
 
 The site will be available at `http://localhost:4321/`.
 
+To start both the site and the local Cloudflare Worker/R2 emulator with one command, use:
+
+```bash
+npm run dev:all
+```
+
+The combined command seeds the local R2 store with the sample images on its first run. To run only the local Worker in a separate terminal, use:
+
+```bash
+npm run dev:worker
+```
+
+The local Worker serves the same `/api/images`, `/images/...`, and `/admin` routes as production at `http://localhost:8787/`. Its local R2 data persists in `.wrangler/portfolio/` and is ignored by Git. The local `.env` file points the site at this Worker; `.env.example` documents that setting without committing it.
+
+When the local site is running, opening `http://localhost:4321/admin` hands off automatically to the local Worker manager at `http://localhost:8787/admin`.
+
+Wrangler is run with a pinned version and downloaded automatically by `npx` the first time. Local-only credentials live in `worker/portfolio/.dev.vars`, which is ignored by Git and can be created from `worker/portfolio/.dev.vars.example` if needed.
+
+### Production image workflow
+
+Images are managed by the portfolio API and stored in the Cloudflare R2 bucket configured in `worker/portfolio/wrangler.toml`:
+
+1. Open `/admin` on the production site. It redirects to the portfolio manager.
+2. Sign in with the `ADMIN_PASSWORD` configured as a Worker secret.
+3. Upload JPG, PNG, WebP, AVIF, or GIF files.
+4. Edit alt text, visibility, and ordering, then choose **Save Changes**.
+5. The public gallery reads the updated manifest from `GET /api/images` and serves files from `/images/<filename>`.
+
+The frontend deployment must have `PUBLIC_PORTFOLIO_API_URL` set to the deployed portfolio API URL. The API Worker is deployed separately from the Astro site.
+
 ### Build for Production
 
 ```bash

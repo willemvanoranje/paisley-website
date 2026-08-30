@@ -4,6 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev --host",
+    "dev:worker": "npx --yes wrangler@4.127.1 dev --config worker/portfolio/wrangler.local.toml --local --persist-to .wrangler/portfolio --port 8787",
+    "dev:all": "node scripts/dev-all.mjs",
     "build": "astro build",
     "preview": "astro preview --host",
     "astro": "astro"
